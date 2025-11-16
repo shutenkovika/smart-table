@@ -1,9 +1,10 @@
 import "./fonts/ys-display/fonts.css";
 import "./style.css";
 
-import { data as sourceData } from "./data/dataset_1.js";
-
+//import { data as sourceData } from "./data/dataset_1.js";
+//
 import { initData } from "./data.js";
+
 import { processFormData } from "./lib/utils.js";
 // @todo: подключение
 import { initTable } from "./components/table.js";
@@ -13,12 +14,19 @@ import { initFiltering } from "./components/filtering.js";
 import { initSearching } from "./components/searching.js";
 
 // Исходные данные используемые в render()
-const { data, ...indexes } = initData(sourceData);
+const API_URL = "http://localhost:3000/orders";
+
+const api = initData();
+
+let indexes = {};
 
 let applyPagination;
+let updatePagination;
+
 let applySorting;
 let applyFiltering;
 let applySearching;
+let updateIndexes;
 
 /**
  * Сбор и обработка полей из таблицы
@@ -41,27 +49,35 @@ function collectState() {
  * Перерисовка состояния таблицы при любых изменениях
  * @param {HTMLButtonElement?} action
  */
-function render(action) {
+async function render(action) {
   let state = collectState();
-  let result = [...data];
+  let query = {};
+
   // @todo: использование
   if (applySearching) {
-    result = applySearching(result, state, action);
+    query = applySearching(query, state, action);
   }
 
   if (applyFiltering) {
-    result = applyFiltering(result, state, action);
+    query = applyFiltering(query, state, action);
   }
 
   if (applySorting) {
-    result = applySorting(result, state, action);
+    query = applySorting(query, state, action);
   }
 
   if (applyPagination) {
-    result = applyPagination(result, state, action);
+    query = applyPagination(query, state, action);
   }
 
-  sampleTable.render(result);
+  const { total, items } = await api.getRecords(query);
+
+  // Вызываем updatePagination для обновления кнопок
+  if (updatePagination) {
+    updatePagination(total, query);
+  }
+
+  sampleTable.render(items);
 }
 
 const sampleTable = initTable(
@@ -76,7 +92,7 @@ const sampleTable = initTable(
 
 // @todo: инициализация
 
-applyPagination = initPagination(
+({ applyPagination, updatePagination } = initPagination(
   sampleTable.pagination.elements,
   (el, page, isCurrent) => {
     const input = el.querySelector("input");
@@ -98,7 +114,7 @@ applyPagination = initPagination(
 
     return el;
   }
-);
+));
 
 const headerElements = sampleTable.header.elements;
 applySorting = initSorting([
@@ -106,13 +122,23 @@ applySorting = initSorting([
   headerElements.sortByTotal,
 ]);
 
-applyFiltering = initFiltering(sampleTable.filter.elements, {
-  searchBySeller: indexes.sellers,
-});
+({ applyFiltering, updateIndexes } = initFiltering(
+  sampleTable.filter.elements
+));
 
 applySearching = initSearching("search");
 
 const appRoot = document.querySelector("#app");
 appRoot.appendChild(sampleTable.container);
 
-render();
+async function init() {
+  // Получаем индексы асинхронно (indexes объявляется в начале файла)
+  indexes = await api.getIndexes();
+
+  if (updateIndexes) {
+    updateIndexes(sampleTable.filter.elements, {
+      searchBySeller: indexes.sellers,
+    });
+  }
+}
+init().then(render);

@@ -1,33 +1,49 @@
-import { sortCollection, sortMap } from "../lib/sort.js";
+//import { getField } from "../lib/sort.js";
 
-export function initSorting(columns) {
-  return (data, state, action) => {
-    let field = null;
-    let order = null;
+export const initSorting = (elements) => {
+  // Переменные для хранения состояния сортировки (используются в замыкании)
+  let sort;
+  let direction;
 
-    if (action && action.name === "sort") {
-      // @todo: #3.1 — запомнить выбранный режим сортировки
-      action.dataset.value = sortMap[action.dataset.value];
-      field = action.dataset.field;
-      order = action.dataset.value;
-      // @todo: #3.2 — сбросить сортировки остальных колонок
-      columns.forEach((column) => {
-        if (column.dataset.field !== action.dataset.field) {
-          column.dataset.value = "none";
-        }
-      });
-    } else {
-      // @todo: #3.3 — получить выбранный режим сортировки
-      columns.forEach((column) => {
-        // Перебираем все кнопки сортировки
-        if (column.dataset.value !== "none") {
-          // Ищем ту, которая не в начальном состоянии (т.е., активно сортирует)
-          field = column.dataset.field; // Сохраняем поле для сортировки
-          order = column.dataset.value; // и направление сортировки ('asc' или 'desc')
-        }
-      });
+  const getNextDirection = (currentDirection) => {
+    switch (currentDirection) {
+      case "asc":
+        return "desc";
+      case "desc":
+        return "asc";
+      default:
+        return "asc";
     }
-
-    return sortCollection(data, field, order);
   };
-}
+
+  elements.forEach((element) => {
+    element.addEventListener("click", () => {
+      // Получаем имя поля из аттрибута и обновляем состояние
+      const field = getField(element);
+      const nextDirection =
+        sort === field ? getNextDirection(direction) : "asc";
+
+      sort = field;
+      direction = nextDirection;
+
+      const input = element.closest("form").querySelector('input[name="page"]');
+      if (input) {
+        input.value = 1;
+      }
+
+      elements.forEach((el) => {
+        el.classList.remove("asc", "desc");
+      });
+      element.classList.add(direction);
+    });
+  });
+
+  return (query, state, action) => {
+    // @todo: #5.1 — формируем параметр сортировки в виде field:direction
+    // Если есть и поле, и направление, формируем строку, иначе null
+    const sortParam = sort && direction ? `${sort}:${direction}` : null;
+
+    // Добавляем параметр sort к query по общему принципу
+    return sortParam ? Object.assign({}, query, { sort: sortParam }) : query;
+  };
+};

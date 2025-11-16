@@ -8,10 +8,10 @@ export const initPagination = (
   const pageTemplate = pages.firstElementChild.cloneNode(true);
   pages.firstElementChild.remove();
 
-  return (data, state, action) => {
-    // @todo: #2.1 — посчитать количество страниц, объявить переменные и константы
-    const rowsPerPage = state.rowsPerPage;
-    const pageCount = Math.ceil(data.length / rowsPerPage);
+  let pageCount; //храним кол-во страниц
+
+  const applyPagination = (query, state, action) => {
+    const limit = state.rowsPerPage;
     let page = state.page;
 
     // @todo: #2.6 — обработать действия
@@ -31,6 +31,21 @@ export const initPagination = (
           break;
       }
 
+    return Object.assign({}, query, {
+      // добавим параметры к query, но не изменяем исходный объект
+      limit,
+      page,
+    });
+  };
+
+  const updatePagination = (total, query) => {
+    const limit = query.limit; //rowsPerPage
+    const page = query.page;
+
+    // @todo: #2.1 — посчитать количество страниц, объявить переменные и константы
+
+    pageCount = Math.ceil(total / limit);
+
     // @todo: #2.4 — получить список видимых страниц и вывести их
     const visiblePages = getPages(page, pageCount, 5);
     pages.replaceChildren(
@@ -41,15 +56,15 @@ export const initPagination = (
     );
 
     // @todo: #2.5 — обновить статус пагинации
-    const startIndex = (page - 1) * rowsPerPage + 1;
-    const endIndex = Math.min(page * rowsPerPage, data.length);
+    const startIndex = (page - 1) * limit + 1;
+    const endIndex = Math.min(page * limit, total);
 
-    fromRow.textContent = (page - 1) * rowsPerPage + 1;
-    toRow.textContent = Math.min(page * rowsPerPage, data.length);
-    totalRows.textContent = data.length;
-
-    // @todo: #2.2 — посчитать сколько строк нужно пропустить и получить срез данных
-    const skip = (page - 1) * rowsPerPage;
-    return data.slice(skip, skip + rowsPerPage);
+    fromRow.textContent = startIndex;
+    toRow.textContent = endIndex;
+    totalRows.textContent = total;
+  };
+  return {
+    applyPagination,
+    updatePagination,
   };
 };
